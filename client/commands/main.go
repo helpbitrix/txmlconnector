@@ -38,11 +38,9 @@ type SubAllTrades struct {
 }
 
 type SubSecurity struct {
-	SecId int `xml:"secid,omitempty"`
-	//Security struct {
-	//	Board   string `xml:"board,omitempty"`
-	//	SecCode string `xml:"seccode,omitempty"`
-	//} `xml:"security,omitempty"`
+    SecId   int    `xml:"secid,omitempty"`
+    Board   string `xml:"board,omitempty"`
+    SecCode string `xml:"seccode,omitempty"`
 }
 
 type Connect struct {
