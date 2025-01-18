@@ -144,11 +144,21 @@ func processTransaq() {
 
 				log.Infof("Подписываемся на %d инструментов", len(quotations))
 
+				// Создаем отдельный массив для стакана
+				quotesSubscription := []commands.SubSecurity{}
+				for _, sec := range filteredSecurities {
+					quotesSubscription = append(quotesSubscription, commands.SubSecurity{
+						Board:   sec.Board,
+						SecCode: sec.SecCode,
+					})
+				}
+
 				cmd := commands.Command{
 					Id:         "subscribe",
 					Client:     "TCTEST",
 					AllTrades:  allTrades,
 					Quotations: quotations,
+					Quotes:     quotesSubscription, // используем массив для стакана
 				}
 
 				log.Infof("Отправляем команду: %+v", cmd)
