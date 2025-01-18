@@ -1,4 +1,4 @@
-module github.com/kmlebedev/txmlconnector
+module github.com/helpbitrix/txmlconnector
 
 go 1.23
 
