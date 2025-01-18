@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/kmlebedev/txmlconnector/server"
+	tcServer "github.com/helpbitrix/txmlconnector/server"
 )
 
 func main() {
