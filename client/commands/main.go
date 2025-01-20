@@ -30,7 +30,7 @@ type Command struct {
 	Reset      string       `xml:"reset,attr,omitempty"`
 	AllTrades  SubAllTrades `xml:"alltrades,omitempty"` // подписка на сделки рынка
 	Quotations struct {
-		Items []int `xml:"secid,omitempty"` // Изменить эту часть
+		Items []SubSecurity `xml:"security,omitempty"`
 	} `xml:"quotations,omitempty"`
 	Quotes []SubSecurity `xml:"quotes>security,omitempty"` // И эту
 }
