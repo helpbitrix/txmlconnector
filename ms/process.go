@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sync/atomic"
 	"time"
 
-	"github.com/helpbitrix/txmlconnector/client/commands"
+	"github.com/kmlebedev/txmlconnector/client/commands"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -144,21 +145,11 @@ func processTransaq() {
 
 				log.Infof("Подписываемся на %d инструментов", len(quotations))
 
-				// Создаем отдельный массив для стакана
-				quotesSubscription := []commands.SubSecurity{}
-				for _, sec := range filteredSecurities {
-					quotesSubscription = append(quotesSubscription, commands.SubSecurity{
-						Board:   sec.Board,
-						SecCode: sec.SecCode,
-					})
-				}
-
 				cmd := commands.Command{
 					Id:         "subscribe",
 					Client:     "TCTEST",
 					AllTrades:  allTrades,
 					Quotations: quotations,
-					Quotes:     quotesSubscription, // используем массив для стакана
 				}
 
 				log.Infof("Отправляем команду: %+v", cmd)
@@ -184,8 +175,12 @@ func processTransaq() {
 
 		case trades := <-tc.AllTradesChan:
 			for _, trade := range trades.Items {
-				if err := insertTrade(&trade); err != nil {
-					log.Errorf("trades async insert trade: %+v: %+v", trade, err)
+				select {
+				case tradesToProcess <- &trade:
+					// успешно отправили в обработку
+				default:
+					log.Error("Trade processing channel is full, dropping trade")
+					atomic.AddInt64(&metrics.TradesErrorCount, 1)
 				}
 			}
 
@@ -199,8 +194,13 @@ func processTransaq() {
 
 			// Проверяем нужно ли сохранять агрегацию
 			if now.Sub(quoteAggregator.lastUpdate) >= quoteAggregator.interval {
-				batch, _ := connect.PrepareBatch(ctx, ChQuotesAggregatedInsert)
+				batch, err := connect.PrepareBatch(ctx, ChQuotesAggregatedInsert)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
 
+				// Собираем все данные в батч
 				for key, agg := range quoteAggregator.data {
 					avgVolume := float32(agg.TotalVolume) / float32(agg.Updates)
 
@@ -224,14 +224,18 @@ func processTransaq() {
 						version,
 					); err != nil {
 						log.Error(err)
+						batch.Abort()
+						continue
 					}
 				}
 
+				// Отправляем батч
 				if err := batch.Send(); err != nil {
 					log.Error(err)
+					continue
 				}
 
-				// Очищаем агрегатор
+				// Только после успешной отправки обновляем состояние
 				quoteAggregator.data = make(map[QuoteKey]*QuoteAggregation)
 				quoteAggregator.lastUpdate = now
 				version++
@@ -280,19 +284,27 @@ func processTransaq() {
 				log.Infof("Positions: \n%+v\n", tc.Data.Positions)
 
 			case "candles":
-				batch, _ := connect.PrepareBatch(ctx, ChCandlesInsertQuery)
+				batch, err := connect.PrepareBatch(ctx, ChCandlesInsertQuery)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
 
 				moscowLoc, err := time.LoadLocation("Europe/Moscow")
 				if err != nil {
 					log.Errorf("Ошибка загрузки временной зоны: %v", err)
+					batch.Abort()
 					continue
 				}
 
+				// Сначала собираем все данные
+				success := true
 				for _, candle := range tc.Data.Candles.Items {
 					candleDate, err := time.ParseInLocation("02.01.2006 15:04:05", candle.Date, moscowLoc)
 					if err != nil {
 						log.Errorf("Ошибка парсинга даты: %v", err)
-						continue
+						success = false
+						break
 					}
 
 					if err := batch.Append(
@@ -306,11 +318,18 @@ func processTransaq() {
 						uint64(candle.Volume),
 					); err != nil {
 						log.Error(err)
+						success = false
+						break
 					}
 				}
 
-				if err := batch.Send(); err != nil {
-					log.Error(err)
+				// Отправляем только если все данные успешно добавлены
+				if success {
+					if err := batch.Send(); err != nil {
+						log.Error(err)
+					}
+				} else {
+					batch.Abort()
 				}
 
 			case "quotations":

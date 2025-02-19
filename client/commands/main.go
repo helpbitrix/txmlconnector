@@ -20,19 +20,17 @@ type ServerStatus struct {
 }
 
 type Command struct {
-	XMLName    xml.Name     `xml:"command"`
-	Id         string       `xml:"id,attr"`
-	Union      string       `xml:"union,attr,omitempty"`
-	Client     string       `xml:"client,attr,omitempty"`
-	SecId      int          `xml:"secid,attr,omitempty"`
-	Period     int          `xml:"period,attr,omitempty"`
-	Count      int          `xml:"count,attr,omitempty"`
-	Reset      string       `xml:"reset,attr,omitempty"`
-	AllTrades  SubAllTrades `xml:"alltrades,omitempty"` // подписка на сделки рынка
-	Quotations struct {
-		Items []SubSecurity `xml:"security,omitempty"`
-	} `xml:"quotations,omitempty"`
-	Quotes []SubSecurity `xml:"quotes>security,omitempty"` // И эту
+	XMLName    xml.Name      `xml:"command"`
+	Id         string        `xml:"id,attr"`
+	Union      string        `xml:"union,attr,omitempty"`
+	Client     string        `xml:"client,attr,omitempty"`
+	SecId      int           `xml:"secid,attr,omitempty"`
+	Period     int           `xml:"period,attr,omitempty"`
+	Count      int           `xml:"count,attr,omitempty"`
+	Reset      string        `xml:"reset,attr,omitempty"`
+	AllTrades  SubAllTrades  `xml:"alltrades,omitempty"`  // подписка на сделки рынка
+	Quotations []SubSecurity `xml:"quotations,omitempty"` // подписка на изменения показателей торгов
+	Quotes     []SubSecurity `xml:"quotes,omitempty"`     // подписка на изменения «стакана»
 }
 
 type SubAllTrades struct {

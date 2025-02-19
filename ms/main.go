@@ -17,9 +17,9 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	tcClient "github.com/helpbitrix/txmlconnector/client"
-	"github.com/helpbitrix/txmlconnector/client/commands"
 	"github.com/joho/godotenv"
+	tcClient "github.com/kmlebedev/txmlconnector/client"
+	"github.com/kmlebedev/txmlconnector/client/commands"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -259,6 +259,14 @@ func main() {
 		}
 	}
 	log.Info("Таблицы в ClickHouse проверены")
+	// Создаем батчеры
+	for i := 0; i < 4; i++ {
+		batcher, err := NewTradesBatcher()
+		if err != nil {
+			log.Fatalf("Failed to create trade batcher: %v", err)
+		}
+		go processTrades(batcher)
+	}
 
 	// Закрытие ресурсов при выходе
 	defer func() {
@@ -408,6 +416,7 @@ connectionLoop:
 				float32(sec.PointCost),
 				sec.SecType,
 				uint8(sec.QuotesType),
+				"", // добавляем пустую строку для поля sector
 			); err != nil {
 				log.Error(err)
 			}
